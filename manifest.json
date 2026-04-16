@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "Halla Gulla — Cyber Bazaar",
+  "version": "3.0",
+  "description": "Watch Halla Gulla movies and TV shows with a neon cyberpunk streaming interface.",
+  "permissions": ["scripting", "activeTab"],
+  "host_permissions": [
+    "https://hallagulla.club/*",
+    "https://videos1.cdnnow.co/*",
+    "https://videos2.cdnnow.co/*",
+    "https://videos3.cdnnow.co/*",
+    "https://videos4.cdnnow.co/*",
+    "https://videos5.cdnnow.co/*",
+    "https://download.cdnnow.co/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://hallagulla.club/classic/movies*",
+        "https://hallagulla.club/movies*",
+        "https://hallagulla.club/classic/videos*",
+        "https://hallagulla.club/videos*"
+      ],
+      "js": ["config.js", "utils.js", "shared.js", "unified.js"],
+      "css": ["style.css"],
+      "run_at": "document_end",
+      "exclude_matches": [
+        "https://hallagulla.club/classic/videopreview-*",
+        "https://hallagulla.club/videopreview-*"
+      ]
+    },
+    {
+      "matches": [
+        "https://hallagulla.club/classic/videopreview-*.html",
+        "https://hallagulla.club/videopreview-*.html"
+      ],
+      "js": ["config.js", "utils.js", "shared.js", "player.js"],
+      "css": ["style.css", "player.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [],
+      "matches": ["https://hallagulla.club/*"]
+    }
+  ]
+}
