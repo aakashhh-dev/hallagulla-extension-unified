@@ -472,7 +472,7 @@
 
     // Type badge
     var typeBadge = document.createElement('span');
-    typeBadge.className = 'hg-card-type-badge' + (item.type === 'movie' ? ' hg-card-type-movie' : '');
+    typeBadge.className = 'hg-card-type-badge' + (item.type === 'movie' ? ' hg-card-type-movie' : ' hg-card-type-show');
     typeBadge.textContent = item.type === 'show' ? ((item.seasons && item.seasons.length > 0) ? 'S' + (item.seasons[item.seasons.length - 1].num || 1) : 'SHOW') : 'MOVIE';
     posterDiv.appendChild(typeBadge);
 
@@ -962,7 +962,9 @@
     if (item.seasons && item.seasons.length > 0) {
       item.seasons.sort(function(a, b) { return (a.num || 999) - (b.num || 999); }).forEach(function(s, i) {
         var tab = document.createElement('button'); tab.className = 'hgp-season-tab' + (i === 0 ? ' active' : '');
-        tab.dataset.season = s.name; tab.textContent = s.num ? 'S' + s.num : 'S1'; seasonTabsDiv.appendChild(tab);
+        tab.dataset.season = s.name; tab.textContent = s.num ? 'S' + s.num : 'S1';
+        tab.title = s.name || ('Season ' + (s.num || i + 1));
+        seasonTabsDiv.appendChild(tab);
       });
     }
 

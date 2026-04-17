@@ -387,7 +387,7 @@
 }
 
 .hgp-ep-item:last-child { border-bottom: none; }
-.hgp-ep-item:hover { background: rgba(255, 255, 255, 0.05); }
+.hgp-ep-item:hover { background: rgba(255, 255, 255, 0.09); }
 .hgp-ep-item.hgp-ep-current { background: rgba(229,9,20,0.08); border-left: 3px solid var(--brand); box-shadow: inset 0 0 15px rgba(229,9,20,0.1); }
 
 .hgp-ep-num {
@@ -463,6 +463,7 @@
   height: 100%;
   background: var(--brand);
   border-radius: 99px;
+  transition: width 0.4s var(--ease, cubic-bezier(0.4, 0, 0.2, 1));
 }
 
 .hgp-ep-watched {
