@@ -467,10 +467,10 @@
 
 .hg-carousel {
   display: flex;
-  gap: 4px;
+  gap: 10px;
   overflow-x: scroll;
   scroll-behavior: smooth;
-  padding: 8px var(--gutter) 24px;
+  padding: 8px var(--gutter) 28px;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -525,8 +525,8 @@
 
 /* Show cards — wider (16:9 landscape) */
 .hg-card[data-type="show"] {
-  width: 24%;
-  min-width: 220px;
+  width: 28%;
+  min-width: 260px;
 }
 
 .hg-card[data-type="show"] .hg-card-poster,
@@ -898,6 +898,11 @@
   max-height: 98vh !important;
   border-radius: 4px;
 }
+
+/* Hide native browser video controls inside our modal */
+#hg-modal video::-webkit-media-controls,
+#hg-modal video::-webkit-media-controls-enclosure,
+#hg-modal video::-webkit-media-controls-panel { display: none !important; }
 
 /* ── Custom Video Controls ────────────────────────────────────────────────── */
 .hgc-controls {
@@ -1591,12 +1596,18 @@
 
 .hg-carousel-grid {
   display: grid !important;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
   overflow-x: visible !important;
   padding: 8px var(--gutter) 20px;
   margin: 0;
   scrollbar-width: auto;
+}
+
+/* TV Shows "All Shows" grid — Netflix large landscape cards */
+.hg-carousel-section[data-row-id="allshows"] .hg-carousel-grid {
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
 }
 
 .hg-section-grid .hg-card {
@@ -1655,12 +1666,12 @@
 
 @media (max-width: 1280px) {
   .hg-card { width: 20%; min-width: 150px; }
-  .hg-card[data-type="show"] { width: 28%; min-width: 200px; }
+  .hg-card[data-type="show"] { width: 33%; min-width: 230px; }
 }
 
 @media (max-width: 1024px) {
   .hg-card { width: 25%; min-width: 140px; }
-  .hg-card[data-type="show"] { width: 33%; min-width: 180px; }
+  .hg-card[data-type="show"] { width: 40%; min-width: 200px; }
   .hg-hero-title { font-size: clamp(1.4rem, 3vw, 2.2rem); }
   #hg-header { gap: 20px; }
 }
@@ -1672,7 +1683,7 @@
   .hg-hero-desc { display: none; }
   .hg-hero-btn { font-size: 13px; padding: 9px 18px; }
   .hg-card { width: 33.333%; min-width: 110px; }
-  .hg-card[data-type="show"] { width: 48%; min-width: 160px; }
+  .hg-card[data-type="show"] { width: 55%; min-width: 180px; }
   .hg-card:hover { transform: scale(1.04); }
   .hg-scroll-btn { display: none !important; }
   .hg-hero-arrow { width: 36px; height: 60px; }
