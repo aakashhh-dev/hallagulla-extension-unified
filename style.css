@@ -840,8 +840,8 @@
 
 #hg-modal-box {
   position: relative;
-  width: min(97%, 900px);
-  max-height: 90vh;
+  width: min(97%, 1140px);
+  max-height: 92vh;
   background: #181818;
   border-radius: 8px;
   overflow: hidden;
@@ -891,6 +891,163 @@
 
 #hg-modal-content::-webkit-scrollbar { width: 4px; }
 #hg-modal-content::-webkit-scrollbar-thumb { background: #444; border-radius: 99px; }
+
+/* ── Cinema mode — expands modal to near-fullscreen ─────────────────────── */
+#hg-modal.hg-cinema-mode #hg-modal-box {
+  width:      98vw !important;
+  max-height: 98vh !important;
+  border-radius: 4px;
+}
+
+/* ── Custom Video Controls ────────────────────────────────────────────────── */
+.hgc-controls {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  z-index: 20;
+  background: linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.35) 55%, transparent 100%);
+  padding: 52px 14px 10px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s var(--ease);
+  user-select: none;
+}
+
+.hgc-controls.hgc-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Progress bar */
+.hgc-progress-wrap {
+  padding: 5px 0 3px;
+  cursor: pointer;
+}
+
+.hgc-progress-bg {
+  height: 3px;
+  background: rgba(255,255,255,0.22);
+  border-radius: 2px;
+  position: relative;
+  transition: height 0.15s var(--ease);
+}
+
+.hgc-progress-wrap:hover .hgc-progress-bg { height: 5px; }
+
+.hgc-progress-fill {
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  background: var(--red);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.hgc-progress-thumb {
+  position: absolute;
+  top: 50%;
+  width: 13px; height: 13px;
+  background: #fff;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform 0.15s var(--ease);
+  pointer-events: none;
+}
+
+.hgc-progress-wrap:hover .hgc-progress-thumb { transform: translate(-50%, -50%) scale(1); }
+
+/* Bottom row */
+.hgc-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.hgc-left, .hgc-right {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Control buttons */
+.hgc-btn {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.9);
+  cursor: pointer;
+  width: 36px; height: 36px;
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+  flex-shrink: 0;
+  font-family: var(--font);
+  padding: 0;
+}
+
+.hgc-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.hgc-btn svg  { display: block; flex-shrink: 0; }
+
+/* Time display */
+.hgc-time {
+  font-size: 12px;
+  color: rgba(255,255,255,0.85);
+  font-family: var(--font);
+  white-space: nowrap;
+  padding: 0 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Volume */
+.hgc-vol-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.hgc-vol-slider {
+  width: 0;
+  height: 4px;
+  overflow: hidden;
+  opacity: 0;
+  transition: width 0.2s var(--ease), opacity 0.2s var(--ease);
+  cursor: pointer;
+  accent-color: #fff;
+  vertical-align: middle;
+  border: none;
+}
+
+.hgc-vol-wrap:hover .hgc-vol-slider,
+.hgc-vol-wrap:focus-within .hgc-vol-slider {
+  width: 68px;
+  opacity: 1;
+  overflow: visible;
+}
+
+/* Audio language button */
+.hgc-audio {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  width: auto;
+  padding: 0 10px;
+  height: 26px;
+  border: 1px solid rgba(255,255,255,0.28);
+  border-radius: var(--r-pill);
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.hgc-audio:hover { border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.1); }
+
+/* Cinema mode active */
+.hgc-cinema-on { color: var(--red) !important; }
+
+/* Fullscreen — give controls more breathing room */
+:fullscreen          .hgc-controls { padding-bottom: 20px; }
+:-webkit-full-screen .hgc-controls { padding-bottom: 20px; }
 
 /* Movie modal */
 #hg-modal-layout-movie {
