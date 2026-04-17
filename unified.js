@@ -718,6 +718,13 @@
         var filter = this.dataset.filter;
         wrap.dataset.filter = filter;
         applyFilter(wrap, filter);
+        // Clear any active search when switching tabs
+        if (searchInput.value) {
+          searchInput.value = '';
+          handleSearch('');
+        }
+        // Always scroll back to top so content is visible
+        wrap.scrollTop = 0;
       });
     });
 

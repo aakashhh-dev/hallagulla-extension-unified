@@ -144,6 +144,17 @@
   background: transparent !important;
 }
 
+.hg-nav-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--red);
+  border-radius: 1px;
+}
+
 /* Search */
 #hg-search-wrap {
   margin-left: auto;
