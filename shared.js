@@ -10,19 +10,77 @@
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   };
 
+  // ─── Shared UI Components ──────────────────────────────────────────────────
+
+  function showToast(container, message, level, duration) {
+    if (!container) return;
+    var host = container.querySelector('#hg-shared-toast-host');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'hg-shared-toast-host';
+      host.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:999999;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+      container.appendChild(host);
+    }
+    var toast = document.createElement('div');
+    toast.className = 'hg-shared-toast hg-shared-toast-' + (level || 'info');
+    toast.textContent = message || '';
+    toast.setAttribute('role', level === 'error' ? 'alert' : 'status');
+    toast.setAttribute('aria-live', level === 'error' ? 'assertive' : 'polite');
+    toast.setAttribute('aria-atomic', 'true');
+    toast.style.cssText = 'padding:10px 14px;border-radius:6px;background:#151515;color:#fff;border:1px solid rgba(255,255,255,0.16);font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,0.5);opacity:0;transform:translateY(6px);transition:opacity 0.2s ease, transform 0.2s ease;pointer-events:auto;';
+    if (level === 'success') toast.style.borderColor = 'rgba(70,211,105,0.5)';
+    if (level === 'error') toast.style.borderColor = 'rgba(229,9,20,0.5)';
+    host.appendChild(toast);
+    requestAnimationFrame(function() {
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateY(0)';
+    });
+    setTimeout(function() {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(6px)';
+      setTimeout(function() { if (toast.parentNode) toast.remove(); }, 220);
+    }, duration || 2200);
+  }
+
+  function renderState(container, opts) {
+    if (!container) return null;
+    var options = opts || {};
+    container.textContent = '';
+    var state = document.createElement('div');
+    state.className = 'hg-shared-state ' + (options.variant || 'info');
+    state.style.cssText = 'margin:0 24px;min-height:96px;border:1px solid rgba(255,255,255,0.08);border-radius:6px;display:flex;align-items:center;justify-content:center;gap:10px;background:#111;color:#9c9c9c;font-size:13px;';
+    var text = document.createElement('span');
+    text.textContent = options.message || '';
+    state.appendChild(text);
+    if (typeof options.onRetry === 'function') {
+      var retry = document.createElement('button');
+      retry.className = 'hg-shared-state-retry';
+      retry.textContent = options.retryLabel || 'Retry';
+      retry.style.cssText = 'border:none;border-radius:4px;background:#e50914;color:#fff;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;';
+      retry.addEventListener('click', options.onRetry);
+      state.appendChild(retry);
+    }
+    container.appendChild(state);
+    return state;
+  }
+
   // ─── Video URL Extraction ───────────────────────────────────────────────────
   // Robust extraction of video URL from various Video.js embed patterns
 
   function extractVideoUrl(doc) {
     // 1. Check for <source> tags inside video elements
-    var srcEl = doc.querySelector('#video-player source, video source, #video-player video source');
+    var srcEl = Utils.selectors && Utils.selectors.query
+      ? Utils.selectors.query(doc, 'VIDEO_SOURCE')
+      : doc.querySelector('#video-player source, video source, #video-player video source');
     if (srcEl) {
       var src = srcEl.getAttribute('src') || '';
       if (src) return src;
     }
 
     // 2. Check for src attribute directly on <video> element
-    var videoEl = doc.querySelector('#video-player, video');
+    var videoEl = Utils.selectors && Utils.selectors.query
+      ? Utils.selectors.query(doc, 'VIDEO_ELEMENT')
+      : doc.querySelector('#video-player, video');
     if (videoEl) {
       var vSrc = videoEl.getAttribute('src') || '';
       if (vSrc) return vSrc;
@@ -45,7 +103,9 @@
     }
 
     // 4. Fallback: download link always has the direct MP4 URL
-    var dlLink = doc.querySelector('#setCounter[href], a[href*="cdnnow.co"]');
+    var dlLink = Utils.selectors && Utils.selectors.query
+      ? Utils.selectors.query(doc, 'DOWNLOAD_LINK')
+      : doc.querySelector('#setCounter[href], a[href*="cdnnow.co"]');
     if (dlLink) {
       var dlHref = dlLink.getAttribute('href') || '';
       if (dlHref) return dlHref;
@@ -493,6 +553,8 @@
 
   // Export shared components
   global.HGShared = {
+    showToast: showToast,
+    renderState: renderState,
     extractVideoUrl: extractVideoUrl,
     renderEpisodes: renderEpisodes,
     setupVideoTracking: setupVideoTracking,

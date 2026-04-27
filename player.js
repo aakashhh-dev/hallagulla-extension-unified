@@ -22,6 +22,10 @@
   var nextEpisodeInterval = null;
   var _keyboardHandler = null;
   var _videoElement = null;
+  var _videoEndedHandler = null;
+  var _videoResumeHandler = null;
+  var _skipTimeUpdateHandler = null;
+  var _playerPrefs = (Utils.preferences && Utils.preferences.get) ? Utils.preferences.get() : { autoplayNext: true, speed: 1, subtitles: 'off', quality: 'auto' };
 
   // ── Cleanup Function ──────────────────────────────────────────────────────────
   function cleanup() {
@@ -38,8 +42,20 @@
       nextEpisodeInterval = null;
     }
     if (_keyboardHandler && _videoElement) {
-      _videoElement.removeEventListener('keydown', _keyboardHandler);
+      document.removeEventListener('keydown', _keyboardHandler);
       _keyboardHandler = null;
+    }
+    if (_videoElement && _videoEndedHandler) {
+      _videoElement.removeEventListener('ended', _videoEndedHandler);
+      _videoEndedHandler = null;
+    }
+    if (_videoElement && _videoResumeHandler) {
+      _videoElement.removeEventListener('loadedmetadata', _videoResumeHandler);
+      _videoResumeHandler = null;
+    }
+    if (_videoElement && _skipTimeUpdateHandler) {
+      _videoElement.removeEventListener('timeupdate', _skipTimeUpdateHandler);
+      _skipTimeUpdateHandler = null;
     }
     if (Utils.cleanup) {
       Utils.cleanup();
@@ -56,6 +72,7 @@
     }
 
     document.body.style.visibility = 'hidden';
+    if (_playerPrefs && _playerPrefs.reducedMotion) document.body.classList.add('hg-reduced-motion');
     var shell = buildShell(data);
     document.body.appendChild(shell);
     document.body.style.visibility = 'visible';
@@ -95,6 +112,7 @@
       seasons: [],
       currentSeason: '',
       currentEpisodeHref: window.location.href,
+      sources: []
     };
 
     var titleEl = doc.querySelector('.v-title');
@@ -105,7 +123,10 @@
 
     // Video source — try multiple selectors since Video.js embeds vary
     var srcEl = doc.querySelector('#video-player source, video source, #video-player video source');
-    if (srcEl) data.videoUrl = srcEl.getAttribute('src') || '';
+    if (srcEl) {
+      data.videoUrl = srcEl.getAttribute('src') || '';
+      if (data.videoUrl) data.sources.push({ label: 'Auto', src: data.videoUrl });
+    }
 
     // Fallback: check for src attribute directly on video element
     if (!data.videoUrl) {
@@ -123,6 +144,10 @@
             var setup = JSON.parse(dataSetup);
             if (setup && setup.sources && setup.sources.length > 0 && setup.sources[0].src) {
               data.videoUrl = setup.sources[0].src;
+              data.sources = setup.sources.map(function(s, i) {
+                var src = s && s.src ? s.src : '';
+                return { label: s && s.label ? s.label : ('Source ' + (i + 1)), src: src };
+              }).filter(function(x) { return !!x.src; });
             }
           } catch (e) { /* not valid JSON */ }
         }
@@ -181,51 +206,14 @@
       data.seasons = [{ value: data.showName, label: data.showName, selected: true }];
     }
 
+    if ((!data.sources || data.sources.length === 0) && data.videoUrl) {
+      data.sources = [{ label: 'Auto', src: data.videoUrl }];
+    }
+
     return data;
   }
 
   // ── Extract video URL from fetched episode page ─────────────────────────────────
-  function extractVideoUrl(doc) {
-    // 1. Check for <source> tags inside video elements
-    var srcEl = doc.querySelector('#video-player source, video source, #video-player video source');
-    if (srcEl) {
-      var src = srcEl.getAttribute('src') || '';
-      if (src) return src;
-    }
-
-    // 2. Check for src attribute directly on <video> or the player div
-    var videoEl = doc.querySelector('#video-player, video');
-    if (videoEl) {
-      var vSrc = videoEl.getAttribute('src') || '';
-      if (vSrc) return vSrc;
-    }
-
-    // 3. Check data-setup attribute (Video.js embeds the source URL as JSON)
-    var playerEl = doc.querySelector('#video-player');
-    if (playerEl) {
-      var dataSetup = playerEl.getAttribute('data-setup') || '';
-      if (dataSetup) {
-        try {
-          var setup = JSON.parse(dataSetup);
-          if (setup && setup.sources && setup.sources.length > 0 && setup.sources[0].src) {
-            return setup.sources[0].src;
-          }
-        } catch (e) {
-          // data-setup not valid JSON, ignore
-        }
-      }
-    }
-
-    // 4. Fallback: download link always has the direct MP4 URL
-    var dlLink = doc.querySelector('#setCounter[href], a[href*="cdnnow.co"]');
-    if (dlLink) {
-      var dlHref = dlLink.getAttribute('href') || '';
-      if (dlHref) return dlHref;
-    }
-
-    return '';
-  }
-
   // ── Build the full player shell using DOM methods ──────────────────────────
   function buildShell(data) {
     var wrap = document.createElement('div');
@@ -302,10 +290,29 @@
       videoWrap.appendChild(pipBtn);
     }
 
+    var skipWrap = document.createElement('div');
+    skipWrap.id = 'hgp-skip-wrap';
+    var skipIntroBtn = document.createElement('button');
+    skipIntroBtn.id = 'hgp-skip-intro-btn';
+    skipIntroBtn.textContent = 'Skip Intro';
+    skipIntroBtn.setAttribute('aria-label', 'Skip intro');
+    skipIntroBtn.style.display = 'none';
+    skipWrap.appendChild(skipIntroBtn);
+    var skipRecapBtn = document.createElement('button');
+    skipRecapBtn.id = 'hgp-skip-recap-btn';
+    skipRecapBtn.textContent = 'Skip Recap';
+    skipRecapBtn.setAttribute('aria-label', 'Skip recap');
+    skipRecapBtn.style.display = 'none';
+    skipWrap.appendChild(skipRecapBtn);
+    videoWrap.appendChild(skipWrap);
+
     // Loading overlay
     var loadingOverlay = document.createElement('div');
     loadingOverlay.id = 'hgp-loading-overlay';
     loadingOverlay.style.display = 'none';
+    loadingOverlay.setAttribute('role', 'status');
+    loadingOverlay.setAttribute('aria-live', 'polite');
+    loadingOverlay.setAttribute('aria-atomic', 'true');
     var loadingSpinner = document.createElement('div');
     loadingSpinner.className = 'hg-spinner';
     loadingOverlay.appendChild(loadingSpinner);
@@ -353,6 +360,18 @@
       statsEl.appendChild(dSpan);
     }
     infoLeft.appendChild(statsEl);
+    var controlBar = document.createElement('div');
+    controlBar.id = 'hgp-control-bar';
+    controlBar.innerHTML = '<label>Speed <select id="hgp-speed"><option value="0.75">0.75x</option><option value="1">1x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option><option value="2">2x</option></select></label><label>Subtitles <select id="hgp-subtitles"><option value="off">Off</option></select></label><label>Quality <select id="hgp-quality"><option value="auto">Auto</option></select></label><label class=\"hgp-auto-next\"><input type=\"checkbox\" id=\"hgp-autonext\"> Auto next</label>';
+    infoLeft.appendChild(controlBar);
+    var speedEl = controlBar.querySelector('#hgp-speed');
+    var subtitlesEl = controlBar.querySelector('#hgp-subtitles');
+    var qualityEl = controlBar.querySelector('#hgp-quality');
+    var autoNextEl = controlBar.querySelector('#hgp-autonext');
+    if (speedEl) speedEl.setAttribute('aria-label', 'Playback speed');
+    if (subtitlesEl) subtitlesEl.setAttribute('aria-label', 'Subtitles');
+    if (qualityEl) qualityEl.setAttribute('aria-label', 'Video quality');
+    if (autoNextEl) autoNextEl.setAttribute('aria-label', 'Auto play next episode');
     infoBar.appendChild(infoLeft);
 
     if (data.downloadUrl) {
@@ -444,7 +463,128 @@
     layout.appendChild(sidebar);
     wrap.appendChild(layout);
 
+    setupPlayerControls(wrap, data);
+    setupSkipMarkers(wrap, data);
+
     return wrap;
+  }
+
+  function setupPlayerControls(shell, data) {
+    var video = shell.querySelector('#hgp-video');
+    if (!video) return;
+    var speedSel = shell.querySelector('#hgp-speed');
+    var subSel = shell.querySelector('#hgp-subtitles');
+    var qualitySel = shell.querySelector('#hgp-quality');
+    var autoNext = shell.querySelector('#hgp-autonext');
+
+    if (speedSel) {
+      speedSel.value = String(_playerPrefs.speed || 1);
+      video.playbackRate = parseFloat(speedSel.value) || 1;
+      speedSel.addEventListener('change', function() {
+        var v = parseFloat(speedSel.value) || 1;
+        video.playbackRate = v;
+        _playerPrefs = Utils.preferences && Utils.preferences.set ? Utils.preferences.set({ speed: v }) : _playerPrefs;
+      });
+    }
+
+    if (autoNext) {
+      autoNext.checked = _playerPrefs.autoplayNext !== false;
+      autoNext.addEventListener('change', function() {
+        _playerPrefs = Utils.preferences && Utils.preferences.set ? Utils.preferences.set({ autoplayNext: !!autoNext.checked }) : _playerPrefs;
+      });
+    }
+
+    if (qualitySel) {
+      qualitySel.textContent = '';
+      var autoOpt = document.createElement('option');
+      autoOpt.value = 'auto';
+      autoOpt.textContent = 'Auto';
+      qualitySel.appendChild(autoOpt);
+      var sources = Array.isArray(data.sources) ? data.sources : [];
+      var seen = {};
+      sources.forEach(function(s, i) {
+        var src = s && s.src ? s.src : '';
+        if (!src || seen[src]) return;
+        seen[src] = true;
+        var o = document.createElement('option');
+        o.value = src;
+        o.textContent = s.label || ('Source ' + (i + 1));
+        qualitySel.appendChild(o);
+      });
+      qualitySel.disabled = qualitySel.options.length <= 1;
+      qualitySel.value = (_playerPrefs.quality && (_playerPrefs.quality === 'auto' || seen[_playerPrefs.quality])) ? _playerPrefs.quality : 'auto';
+      qualitySel.addEventListener('change', function() {
+        var selected = qualitySel.value;
+        _playerPrefs = Utils.preferences && Utils.preferences.set ? Utils.preferences.set({ quality: selected }) : _playerPrefs;
+        if (selected === 'auto' || selected === video.currentSrc) return;
+        var t = video.currentTime || 0;
+        video.src = selected;
+        video.load();
+        video.addEventListener('loadedmetadata', function() {
+          video.currentTime = Math.max(0, t - 0.5);
+          video.play().catch(function() {});
+        }, { once: true });
+      });
+    }
+
+    if (subSel) {
+      var rebuildSubtitles = function() {
+        subSel.textContent = '';
+        var off = document.createElement('option');
+        off.value = 'off';
+        off.textContent = 'Off';
+        subSel.appendChild(off);
+        var tracks = video.textTracks || [];
+        for (var i = 0; i < tracks.length; i++) {
+          var tr = tracks[i];
+          var o = document.createElement('option');
+          o.value = String(i);
+          o.textContent = tr.label || tr.language || ('Track ' + (i + 1));
+          subSel.appendChild(o);
+        }
+        subSel.disabled = subSel.options.length <= 1;
+        subSel.value = _playerPrefs.subtitles || 'off';
+      };
+      rebuildSubtitles();
+      video.addEventListener('loadedmetadata', rebuildSubtitles);
+      subSel.addEventListener('change', function() {
+        var val = subSel.value;
+        var tracks = video.textTracks || [];
+        for (var i = 0; i < tracks.length; i++) tracks[i].mode = 'disabled';
+        if (val !== 'off' && tracks[parseInt(val, 10)]) tracks[parseInt(val, 10)].mode = 'showing';
+        _playerPrefs = Utils.preferences && Utils.preferences.set ? Utils.preferences.set({ subtitles: val }) : _playerPrefs;
+      });
+    }
+  }
+
+  function getSkipMarkers(data) {
+    var defaults = { recapEnd: 40, introEnd: 90 };
+    if (!data || !data.showName) return defaults;
+    var name = String(data.showName || '').toLowerCase();
+    if (name.indexOf('talk') !== -1 || name.indexOf('reality') !== -1) return { recapEnd: 25, introEnd: 55 };
+    return defaults;
+  }
+
+  function setupSkipMarkers(shell, data) {
+    var video = shell.querySelector('#hgp-video');
+    if (!video) return;
+    var introBtn = shell.querySelector('#hgp-skip-intro-btn');
+    var recapBtn = shell.querySelector('#hgp-skip-recap-btn');
+    var markers = getSkipMarkers(data);
+
+    function refreshSkipButtons() {
+      if (!introBtn || !recapBtn) return;
+      var t = video.currentTime || 0;
+      recapBtn.style.display = t < markers.recapEnd ? '' : 'none';
+      introBtn.style.display = (t >= markers.recapEnd && t < markers.introEnd) ? '' : 'none';
+    }
+
+    if (recapBtn) recapBtn.addEventListener('click', function() { video.currentTime = markers.recapEnd; });
+    if (introBtn) introBtn.addEventListener('click', function() { video.currentTime = markers.introEnd; });
+    if (_skipTimeUpdateHandler) video.removeEventListener('timeupdate', _skipTimeUpdateHandler);
+    _skipTimeUpdateHandler = refreshSkipButtons;
+    video.addEventListener('timeupdate', _skipTimeUpdateHandler);
+    refreshSkipButtons();
   }
 
   // ── Keyboard shortcuts ──────────────────────────────────────────────────────
@@ -483,6 +623,15 @@
             Utils.togglePIP(video).catch(function() {});
           }
           break;
+        case 'c':
+          var subSel = shell.querySelector('#hgp-subtitles');
+          if (subSel && subSel.options.length > 1) {
+            e.preventDefault();
+            var nextIdx = (subSel.selectedIndex + 1) % subSel.options.length;
+            subSel.selectedIndex = nextIdx;
+            subSel.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          break;
         case 'Escape':
           window.location.href = '/classic/videos';
           break;
@@ -507,13 +656,18 @@
     } else {
       savedTime = typeof savedData === 'number' ? savedData : 0;
     }
+    if (_videoResumeHandler) {
+      video.removeEventListener('loadedmetadata', _videoResumeHandler);
+      _videoResumeHandler = null;
+    }
     if (savedTime > 0) {
-      video.addEventListener('loadedmetadata', function() {
+      _videoResumeHandler = function() {
         if (savedTime < video.duration - 30) {
           video.currentTime = savedTime;
           showResumeNotification(shell, savedTime);
         }
-      }, { once: true });
+      };
+      video.addEventListener('loadedmetadata', _videoResumeHandler, { once: true });
     }
 
     if (currentVideoSaveInterval) clearInterval(currentVideoSaveInterval);
@@ -522,14 +676,19 @@
       Utils.videoProgress.save(data.videoUrl, video.currentTime, video.duration);
     }, 10000);
 
-    video.addEventListener('ended', function() {
+    if (_videoEndedHandler) {
+      video.removeEventListener('ended', _videoEndedHandler);
+      _videoEndedHandler = null;
+    }
+    _videoEndedHandler = function() {
       if (currentVideoSaveInterval) {
         clearInterval(currentVideoSaveInterval);
         currentVideoSaveInterval = null;
       }
       Utils.videoProgress.clear(data.videoUrl);
-      showNextEpisodeToast(shell);
-    }, { once: true });
+      if (_playerPrefs.autoplayNext !== false) showNextEpisodeToast(shell);
+    };
+    video.addEventListener('ended', _videoEndedHandler, { once: true });
 
     window.addEventListener('beforeunload', function() {
       if (currentVideoSaveInterval) {
@@ -961,7 +1120,7 @@
       })
       .then(function(html) {
         var doc = new DOMParser().parseFromString(html, 'text/html');
-        var videoUrl = extractVideoUrl(doc);
+        var videoUrl = HGShared.extractVideoUrl(doc);
 
         var og = doc.querySelector('meta[property="og:image"]');
         var poster = og ? og.getAttribute('content') : '';
@@ -1099,13 +1258,18 @@
     } else {
       savedTime = typeof savedData === 'number' ? savedData : 0;
     }
+    if (_videoResumeHandler) {
+      video.removeEventListener('loadedmetadata', _videoResumeHandler);
+      _videoResumeHandler = null;
+    }
     if (savedTime > 0) {
-      video.addEventListener('loadedmetadata', function() {
+      _videoResumeHandler = function() {
         if (savedTime < video.duration - 30) {
           video.currentTime = savedTime;
           showResumeNotification(shell, savedTime);
         }
-      }, { once: true });
+      };
+      video.addEventListener('loadedmetadata', _videoResumeHandler, { once: true });
     }
 
     currentVideoSaveInterval = setInterval(function() {
@@ -1113,14 +1277,19 @@
       Utils.videoProgress.save(videoUrl, video.currentTime, video.duration);
     }, 10000);
 
-    video.addEventListener('ended', function() {
+    if (_videoEndedHandler) {
+      video.removeEventListener('ended', _videoEndedHandler);
+      _videoEndedHandler = null;
+    }
+    _videoEndedHandler = function() {
       if (currentVideoSaveInterval) {
         clearInterval(currentVideoSaveInterval);
         currentVideoSaveInterval = null;
       }
       Utils.videoProgress.clear(videoUrl);
-      showNextEpisodeToast(shell);
-    }, { once: true });
+      if (_playerPrefs.autoplayNext !== false) showNextEpisodeToast(shell);
+    };
+    video.addEventListener('ended', _videoEndedHandler, { once: true });
   }
 
   // ── Inject & boot ────────────────────────────────────────────────────────────
