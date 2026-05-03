@@ -84,7 +84,12 @@
       ENABLE_SEARCH: true,                // Search functionality
       ENABLE_CONTINUE_WATCHING: true,     // Continue watching row
       ENABLE_RETRY_LOGIC: true,           // Retry failed requests
-      ENABLE_CACHE: true                  // Response caching
+      ENABLE_CACHE: true,                 // Response caching
+      navV2: true,                        // Navigation + state persistence
+      searchV2: true,                     // Search improvements
+      listsV2: true,                      // My List / collections improvements
+      playerV2: true,                     // Advanced player interactions
+      accountHub: true                    // Account/settings hub (no billing mutation)
     },
 
     // ─── Retry Configuration ──────────────────────────────────────────────────
@@ -114,7 +119,14 @@
     STORAGE: {
       WATCH_HISTORY: 'hg_watch_history',
       VIDEO_PROGRESS: 'hg_video_progress',
-      SETTINGS: 'hg_settings'
+      SETTINGS: 'hg_settings',
+      MY_LIST: 'hg_my_list',
+      MY_LISTS: 'hg_my_lists',
+      SEARCH_HISTORY: 'hg_search_history',
+      PREFERENCES: 'hg_preferences',
+      FEATURE_FLAGS: 'hg_feature_flags',
+      LAST_UI_STATE: 'hg_last_ui_state',
+      STORAGE_MIGRATED: 'hg_storage_migrated_v1'
     },
 
     // ─── CSS Classes ──────────────────────────────────────────────────────────
